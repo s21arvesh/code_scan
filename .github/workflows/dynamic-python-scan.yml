@@ -1,0 +1,159 @@
+
+name: Dynamic Python Code Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      scan_tools:
+        description: 'Comma-separated list of tools to run'
+        required: false
+        default: 'bandit,pylint,flake8'
+      project_name:
+        description: 'Project name for reporting'
+        required: false
+        default: 'python-project'
+
+env:
+  REPORT_DIR: scan-reports
+
+jobs:
+  python-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip install pylint
+        
+    - name: Create report directory
+      run: mkdir -p $REPORT_DIR
+      
+    - name: Run Python code scans
+      run: |
+        echo "Starting Python code scans..."
+        echo 'Running Pylint Code Quality...'
+        pylint **/*.py --output-format=json > $REPORT_DIR/pylint.json || true
+        echo "All scans completed. Reports saved to $REPORT_DIR"
+        
+    - name: Generate severity summary
+      run: |
+        python3 << 'EOF'
+        import json
+        import os
+        from pathlib import Path
+        
+        report_dir = Path(os.environ.get('REPORT_DIR', 'scan-reports'))
+        severity_summary = {
+            'critical': [],
+            'high': [],
+            'medium': [],
+            'low': [],
+            'info': []
+        }
+        
+        # Process Bandit results
+        if (report_dir / 'bandit.json').exists():
+            try:
+                with open(report_dir / 'bandit.json') as f:
+                    bandit_data = json.load(f)
+                    for result in bandit_data.get('results', []):
+                        severity = result.get('issue_severity', 'unknown').lower()
+                        if severity in severity_summary:
+                            severity_summary[severity].append({
+                                'tool': 'bandit',
+                                'file': result.get('filename'),
+                                'line': result.get('line_number'),
+                                'issue': result.get('test_name'),
+                                'message': result.get('issue_text')
+                            })
+            except Exception as e:
+                print(f"Error processing bandit.json: {e}")
+        
+        # Process Pylint results
+        if (report_dir / 'pylint.json').exists():
+            try:
+                with open(report_dir / 'pylint.json') as f:
+                    pylint_data = json.load(f)
+                    for msg in pylint_data:
+                        if msg.get('type') == 'error':
+                            severity_summary['high'].append({
+                                'tool': 'pylint',
+                                'file': msg.get('path'),
+                                'line': msg.get('line'),
+                                'issue': msg.get('message-id'),
+                                'message': msg.get('message')
+                            })
+                        elif msg.get('type') == 'warning':
+                            severity_summary['medium'].append({
+                                'tool': 'pylint',
+                                'file': msg.get('path'),
+                                'line': msg.get('line'),
+                                'issue': msg.get('message-id'),
+                                'message': msg.get('message')
+                            })
+            except Exception as e:
+                print(f"Error processing pylint.json: {e}")
+        
+        # Process pip-audit results
+        if (report_dir / 'pip_audit.json').exists():
+            try:
+                with open(report_dir / 'pip_audit.json') as f:
+                    pip_audit_data = json.load(f)
+                    for vuln in pip_audit_data.get('vulnerabilities', []):
+                        severity = vuln.get('severity', 'unknown').lower()
+                        if severity in severity_summary:
+                            severity_summary[severity].append({
+                                'tool': 'pip-audit',
+                                'package': vuln.get('name'),
+                                'version': vuln.get('installed_version'),
+                                'issue': vuln.get('id'),
+                                'message': vuln.get('description', 'Vulnerability found')
+                            })
+            except Exception as e:
+                print(f"Error processing pip_audit.json: {e}")
+        
+        # Save severity summary
+        with open(report_dir / 'severity_summary.json', 'w') as f:
+            json.dump(severity_summary, f, indent=2)
+            
+        print("Severity summary generated successfully")
+        EOF
+        
+    - name: Upload scan reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: python-scan-reports
+        path: ${{ env.REPORT_DIR }}/
+        retention-days: 30
+        
+    - name: Send results to API
+      if: always()
+      run: |
+        if [ -f "$REPORT_DIR/severity_summary.json" ]; then
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d @- \
+            "${{ secrets.API_ENDPOINT }}/api/scan-results" << EOF
+        {
+          "repository": "${{ github.repository }}",
+          "branch": "${{ github.ref_name }}",
+          "run_id": "${{ github.run_id }}",
+          "severity_results": $(cat $REPORT_DIR/severity_summary.json),
+          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        }
+        EOF
+        fi
