@@ -2,24 +2,28 @@
 name: Dynamic Python Code Scan
 
 on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       scan_tools:
-        description: 'Selected scanning tools'
-        required: true
-        type: string
-      project_name:
-        description: 'Project name'
+        description: 'Comma-separated list of tools to run'
         required: false
-        type: string
+        default: 'bandit,pylint,flake8'
+      project_name:
+        description: 'Project name for reporting'
+        required: false
+        default: 'python-project'
+
+env:
+  REPORT_DIR: scan-reports
 
 jobs:
-  scan:
+  python-scan:
     runs-on: ubuntu-latest
-    env:
-      REPORT_DIR: scan-reports
-      PYTHONPATH: ${{ github.workspace }}
-      
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -29,18 +33,15 @@ jobs:
       with:
         python-version: '3.11'
         
-    - name: Create report directory
-      run: |
-        mkdir -p $REPORT_DIR
-        
     - name: Install dependencies
       run: |
-        if [ -f requirements.txt ]; then
-          pip install -r requirements.txt
-        fi
+        python -m pip install --upgrade pip
         pip install pip install pylint
         
-    - name: Run Python Security & Quality Scans
+    - name: Create report directory
+      run: mkdir -p $REPORT_DIR
+      
+    - name: Run Python code scans
       run: |
         echo "Starting Python code scans..."
         echo 'Running Pylint Code Quality...'
