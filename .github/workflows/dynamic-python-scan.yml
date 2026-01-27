@@ -247,21 +247,3 @@ jobs:
         name: python-scan-reports
         path: ${{ env.REPORT_DIR }}/
         retention-days: 30
-        
-    - name: Send results to API
-      if: always()
-      run: |
-        if [ -f "$REPORT_DIR/severity_summary.json" ]; then
-          curl -X POST \
-            -H "Content-Type: application/json" \
-            -d @- \
-            "https://eop7f15rcm9dnz.m.pipedream.net" << EOF
-        {
-          "repository": "${{ github.repository }}",
-          "branch": "${{ github.ref_name }}",
-          "run_id": "${{ github.run_id }}",
-          "severity_results": $(cat $REPORT_DIR/severity_summary.json),
-          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        }
-        EOF
-        fi
