@@ -1,171 +1,171 @@
-from flask import Flask, request, jsonify
-from tasks import long_running_task
-from code_scan import code_scan
+#!/usr/bin/env python3
+"""
+Sample Python code with security and style issues for testing
+This file contains intentional violations for bandit, pylint, and flake8
+"""
 
-# Create a Flask application instance
-app = Flask(__name__)
+import os
+import subprocess
+import pickle
+import hashlib
+import sqlite3
+import random
+import sys
 
-@app.route('/')
-def hello_world():
-    """Returns a simple greeting when the root URL is accessed."""
-    return 'Hello, World!'
+# Global variable (bad practice)
+global_var = "This should not be global"
 
-@app.route("/generate_yaml_preview", methods=["POST"])
-def generate_yaml_preview():
-    """Generate YAML workflow preview without triggering scan"""
+def insecure_function():
+    """Function with security issues"""
+    # Bandit: Hardcoded password
+    password = "super_secret_password_123"
+    
+    # Bandit: Use of eval() (dangerous)
+    user_input = "print('hello')"
+    eval(user_input)
+    
+    # Bandit: Use of exec() (dangerous)
+    exec("import os; os.system('ls')")
+    
+    # Bandit: Insecure tempfile usage
+    import tempfile
+    temp_file = tempfile.mktemp()
+    with open(temp_file, 'w') as f:
+        f.write("sensitive data")
+    
+    # Bandit: SQL injection vulnerability
+    conn = sqlite3.connect('test.db')
+    cursor = conn.cursor()
+    user_id = "1 OR 1=1"
+    cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+    
+    # Bandit: Insecure hash usage
+    hash_obj = hashlib.md5()
+    hash_obj.update(b"sensitive data")
+    
+    # Bandit: Use of pickle (insecure deserialization)
+    data = pickle.dumps({"key": "value"})
+    unpickled = pickle.loads(data)
+    
+    return password
+
+def poorly_formatted_function(    arg1,    arg2    ,    arg3    ):
+    """Function with formatting issues"""
+    # Flake8: Multiple spaces around operators
+    x = 5  *  2
+    y = x +  10
+    
+    # Flake8: Line too long
+    very_long_variable_name_that_exceeds_the_line_length_limit_and_should_be_shortened = "This is a very long string"
+    
+    # Flake8: Missing whitespace after comma
+    items = [1,2,3,4,5]
+    
+    # Flake8: Extra whitespace
+    result = ( x + y )
+    
+    # Flake8: Unused import (sys is imported but not used)
+    # Flake8: Import not at top (subprocess imported above but used here)
+    subprocess.run(["ls", "-la"])
+    
+    # Pylint: Missing docstring for variable
+    bad_var = 42
+    
+    # Pylint: Invalid variable name
+    invalid_name_123 = "bad naming"
+    
+    # Pylint: Too many local variables
+    a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p = range(16)
+    
+    # Pylint: Unreachable code
+    return True
+    print("This will never execute")
+    
+def another_bad_function():
+    """Function with various code quality issues"""
+    # Pylint: Missing return type annotation
+    # Pylint: Too many statements in function
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    print(result)
+    
+    # Pylint: Magic number
+    if result == 6:
+        print("Result is 6")
+    
+    # Pylint: Consider using enumerate
+    items = ['a', 'b', 'c']
+    for i in range(len(items)):
+        print(f"Item {i}: {items[i]}")
+    
+    # Pylint: Redundant parenthesis
+    return (result)
+
+class BadClass:
+    """Class with various issues"""
+    
+    def __init__(self):
+        # Pylint: Invalid name
+        self.BAD_ATTRIBUTE = "should be lowercase"
+        
+    def bad_method(self, x, y):
+        # Pylint: Missing docstring
+        # Pylint: Argument name doesn't follow snake_case
+        return x + Y  # Pylint: Undefined variable Y
+    
+    def another_method(self):
+        # Pylint: No return
+        pass
+
+def function_with_exceptions():
+    """Function with exception handling issues"""
     try:
-        data = request.get_json()
-        scanner = code_scan()
-        
-        # Generate YAML without triggering scan
-        yaml_data = scanner.generate_dynamic_yaml(data)
-        
-        if yaml_data["success"]:
-            return jsonify({
-                "success": True,
-                "yaml_content": yaml_data["yaml_content"],
-                "detected_languages": yaml_data["detected_languages"],
-                "selected_tools": yaml_data["selected_tools"],
-                "project_name": yaml_data["project_name"]
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "error": yaml_data["error"]
-            }), 400
-            
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-@app.route("/detect_languages", methods=["POST"])
-def detect_languages():
-    """Auto-detect languages based on selected tools"""
+        # Bandit: Try-except without specific exception
+        risky_operation()
+    except:
+        # Pylint: Bare except
+        pass
+    
     try:
-        data = request.get_json()
-        tools = data.get('tools', [])
-        
-        scanner = code_scan()
-        detected_languages = scanner._detect_languages_from_tools(tools)
-        
-        return jsonify({
-            "success": True,
-            "detected_languages": detected_languages,
-            "tools": tools
-        })
-        
+        another_operation()
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-@app.route("/initiate_scan", methods=["POST"])
-def add_workflow():
-    print(f'======================= >>>>  START API')
-    data = request.get_json()
-    # selected = set(data.get("tools", []))
-    print(f'======================= >>>>  selected_tools - {type(data)}')
-    task = long_running_task.delay(data)
-    return jsonify({
-        "message": "Scan Initiated",
-        "task_id": task.id
-    })
-
-@app.route("/result/<task_id>")
-def result(task_id):
-    task = long_running_task.AsyncResult(task_id)
-    return jsonify({
-        "task_id": task.id,
-        "status": task.status,
-        "result": task.result
-    })
-
-# Initialize code scanner instance
-scanner = code_scan()
-
-@app.route("/workflow/runs", methods=["GET"])
-def get_workflow_runs():
-    """Get recent workflow runs"""
-    limit = request.args.get('limit', 10, type=int)
-    result = scanner.get_workflow_runs(limit)
-    return jsonify(result)
-
-@app.route("/workflow/run/<run_id>", methods=["GET"])
-def get_workflow_run_details(run_id):
-    """Get detailed information about a specific workflow run"""
-    result = scanner.get_workflow_run_details(run_id)
-    return jsonify(result)
-
-@app.route("/workflow/run/<run_id>/jobs", methods=["GET"])
-def get_workflow_jobs(run_id):
-    """Get jobs for a specific workflow run"""
-    result = scanner.get_workflow_jobs(run_id)
-    return jsonify(result)
-
-@app.route("/workflow/artifacts", methods=["GET"])
-def get_workflow_artifacts():
-    """Get all recent artifacts or artifacts for a specific run"""
-    run_id = request.args.get('run_id')
-    result = scanner.get_workflow_artifacts(run_id)
-    return jsonify(result)
-
-@app.route("/workflow/run/<run_id>/logs/<job_id>", methods=["GET"])
-def get_workflow_logs(run_id, job_id):
-    """Get logs for a specific job in a workflow run"""
-    result = scanner.get_workflow_logs(run_id, job_id)
-    return jsonify(result)
-
-@app.route("/workflow/summary/<run_id>", methods=["GET"])
-def get_scan_summary(run_id):
-    """Get a comprehensive summary of a scan run"""
-    result = scanner.get_scan_summary(run_id)
-    return jsonify(result)
-
-@app.route("/tools/available", methods=["GET"])
-def get_available_tools():
-    """Get list of all available scanning tools"""
-    result = scanner.get_available_tools()
-    return jsonify(result)
-
-@app.route("/workflow/severity/<run_id>", methods=["GET"])
-def get_severity_wise_results(run_id):
-    """Get scan results categorized by severity for each tool"""
-    result = scanner.get_severity_wise_results(run_id)
-    return jsonify(result)
-
-@app.route("/api/scan-results", methods=["POST"])
-def receive_scan_results():
-    """Receive severity-wise scan results from GitHub Actions workflow"""
-    data = request.get_json()
+        # Pylint: Exception variable not used
+        pass
     
-    # Extract severity results from the data
-    severity_results = data.get('severity_results', {})
-    
-    # Store or process results as needed
-    print(f"Received scan results: {data}")
-    print(f"Severity results: {severity_results}")
-    
-    # You can store in database, file, or process further
-    return jsonify({
-        "success": True,
-        "message": "Scan results received successfully",
-        "severity_results": severity_results,
-        "run_id": data.get('run_id'),
-        "repository": data.get('repository'),
-        "branch": data.get('branch')
-    })
+    # Pylint: Too broad exception
+    try:
+        yet_another_operation()
+    except BaseException:
+        pass
 
-@app.route("/tools/validate", methods=["POST"])
-def validate_tools():
-    """Validate if tools are supported"""
-    data = request.get_json()
-    tools = data.get('tools', [])
-    result = scanner.validate_tools(tools)
-    return jsonify(result)
+def risky_operation():
+    """Simulate risky operation"""
+    # Bandit: Use of os.system() (command injection)
+    os.system("rm -rf /")
+    
+    # Bandit: Use of subprocess with shell=True
+    subprocess.run("ls -la", shell=True)
 
-if __name__ == '__main__':
-    # Run the application (this is only for the development server)
-    app.run(debug=True)
+def another_operation():
+    """Another operation"""
+    pass
+
+def yet_another_operation():
+    """Yet another operation"""
+    pass
+
+# Bandit: Code running at module level
+if __name__ == "__main__":
+    # Pylint: Too many statements in module level
+    print("Starting execution")
+    insecure_function()
+    poorly_formatted_function(1, 2, 3)
+    another_bad_function()
+    
+    # Pylint: Unused variable
+    unused_var = "This is never used"
+    
+    # Bandit: Debug print with sensitive data
+    print(f"Password: {insecure_function()}")
