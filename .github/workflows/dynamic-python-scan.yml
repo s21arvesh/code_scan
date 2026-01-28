@@ -481,17 +481,6 @@ jobs:
         for severity, issues in severity_summary.items():
             print(str(severity) + ": " + str(len(issues)) + " issues")
         print("Severity summary generated successfully")
-        
-        # Send results to Pipedream API
-        echo 'Sending scan results to API...'
-        cat $REPORT_DIR/severity_summary.json 2>/dev/null > /tmp/severity_data || echo '{}' > /tmp/severity_data
-        echo '{"repository": "${{ github.repository }}", "commit": "${{ github.sha }}", "branch": "${{ github.ref_name }}", "workflow_run_id": "${{ github.run_id }}", "severity_summary": ' > /tmp/payload.json
-        cat /tmp/severity_data >> /tmp/payload.json
-        echo ', "scan_timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> /tmp/payload.json
-        curl -X POST \
-            -H "Content-Type: application/json" \
-            -d @/tmp/payload.json \
-            "https://eop7f15rcm9dnz.m.pipedream.net" || true
         EOF
         
     - name: Upload scan reports
