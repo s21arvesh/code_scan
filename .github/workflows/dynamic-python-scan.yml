@@ -63,7 +63,7 @@ jobs:
         find . -name "*.py" -type f -exec echo "  - {}" \;
         echo "DEBUG: About to execute scan_commands..."
         echo 'Running Flake8 Style Checker...'
-        flake8 . --format=json > $REPORT_DIR/flake8.json 2>/dev/null || echo '[]' > $REPORT_DIR/flake8.json
+        flake8 . --format=json --output-file=$REPORT_DIR/flake8.json || true
         echo "DEBUG: scan_commands completed"
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
