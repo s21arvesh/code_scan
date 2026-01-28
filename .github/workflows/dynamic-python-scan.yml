@@ -59,7 +59,7 @@ jobs:
         find . -name "*.py" -type f | head -10
         echo "=== Running Scan Commands ==="
         echo 'Running Bandit Security Scanner...'
-        bandit -r . -f json -o $REPORT_DIR/bandit.json 2>/dev/null || echo '{}' > $REPORT_DIR/bandit.json
+        bandit -r . -f json > $REPORT_DIR/bandit.json 2>/dev/null || echo '{}' > $REPORT_DIR/bandit.json
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
         ls -la $REPORT_DIR/
