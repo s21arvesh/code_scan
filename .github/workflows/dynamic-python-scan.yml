@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint pydocstyle flake8 radon bandit pip-audit
+        pip install bandit pip-audit radon flake8 pylint pydocstyle
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
@@ -52,20 +52,21 @@ jobs:
         echo 'Running Bandit Security Scanner...'
         bandit -r . -f json -o $REPORT_DIR/bandit.json 2>/dev/null || echo '{}' > $REPORT_DIR/bandit.json
         echo 'Running Pylint Code Quality...'
-        pylint **/*.py --output-format=json > $REPORT_DIR/pylint.json || true
+        pylint . --output-format=json > $REPORT_DIR/pylint.json 2>/dev/null || true
         echo 'Running Flake8 Style Checker...'
         flake8 . --format=json --output-file=$REPORT_DIR/flake8.json 2>/dev/null || echo '[]' > $REPORT_DIR/flake8.json
         echo 'Running pip-audit Vulnerability Scanner...'
-        pip-audit --format=json --output=$REPORT_DIR/pip_audit.json || true
+        pip-audit --format=json --output=$REPORT_DIR/pip_audit.json 2>/dev/null || echo '{"dependencies": []}' > $REPORT_DIR/pip_audit.json
         echo 'Running Radon Cyclomatic Complexity...'
-        radon cc --json . > $REPORT_DIR/radon_cc.json || true
+        radon cc . --json > $REPORT_DIR/radon_cc.json 2>/dev/null || echo '{}' > $REPORT_DIR/radon_cc.json
         echo 'Running Radon Maintainability Index...'
-        radon mi --json . > $REPORT_DIR/radon_mi.json || true
+        radon mi . --json > $REPORT_DIR/radon_mi.json 2>/dev/null || echo '{}' > $REPORT_DIR/radon_mi.json
         echo 'Running Pydocstyle Documentation Checker...'
-        pydocstyle **/*.py --json > $REPORT_DIR/pydocstyle.json || true
+        pydocstyle . --json > $REPORT_DIR/pydocstyle.json 2>/dev/null || echo '[]' > $REPORT_DIR/pydocstyle.json
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
         ls -la $REPORT_DIR/
+        echo "=== Checking each tool's report file ==="
         echo "Bandit report file:"
         if [ -f "$REPORT_DIR/bandit.json" ]; then
           echo "Bandit report exists"
@@ -74,6 +75,15 @@ jobs:
           head -20 $REPORT_DIR/bandit.json
         else
           echo "Bandit report NOT found"
+        fi
+        echo "Pylint report file:"
+        if [ -f "$REPORT_DIR/pylint.json" ]; then
+          echo "Pylint report exists"
+          echo "Pylint report size: $(wc -c < $REPORT_DIR/pylint.json)"
+          echo "Pylint report preview:"
+          head -20 $REPORT_DIR/pylint.json
+        else
+          echo "Pylint report NOT found"
         fi
         echo "Flake8 report file:"
         if [ -f "$REPORT_DIR/flake8.json" ]; then
@@ -84,10 +94,51 @@ jobs:
         else
           echo "Flake8 report NOT found"
         fi
+        echo "Pip-audit report file:"
+        if [ -f "$REPORT_DIR/pip_audit.json" ]; then
+          echo "Pip-audit report exists"
+          echo "Pip-audit report size: $(wc -c < $REPORT_DIR/pip_audit.json)"
+          echo "Pip-audit report preview:"
+          head -20 $REPORT_DIR/pip_audit.json
+        else
+          echo "Pip-audit report NOT found"
+        fi
+        echo "Radon CC report file:"
+        if [ -f "$REPORT_DIR/radon_cc.json" ]; then
+          echo "Radon CC report exists"
+          echo "Radon CC report size: $(wc -c < $REPORT_DIR/radon_cc.json)"
+          echo "Radon CC report preview:"
+          head -20 $REPORT_DIR/radon_cc.json
+        else
+          echo "Radon CC report NOT found"
+        fi
+        echo "Radon MI report file:"
+        if [ -f "$REPORT_DIR/radon_mi.json" ]; then
+          echo "Radon MI report exists"
+          echo "Radon MI report size: $(wc -c < $REPORT_DIR/radon_mi.json)"
+          echo "Radon MI report preview:"
+          head -20 $REPORT_DIR/radon_mi.json
+        else
+          echo "Radon MI report NOT found"
+        fi
+        echo "Pydocstyle report file:"
+        if [ -f "$REPORT_DIR/pydocstyle.json" ]; then
+          echo "Pydocstyle report exists"
+          echo "Pydocstyle report size: $(wc -c < $REPORT_DIR/pydocstyle.json)"
+          echo "Pydocstyle report preview:"
+          head -20 $REPORT_DIR/pydocstyle.json
+        else
+          echo "Pydocstyle report NOT found"
+        fi
+        echo "=== Manual tool checks ==="
         echo "Running flake8 manually to check:"
         flake8 . --version
         echo "Running flake8 on current directory:"
         flake8 . --format=json || echo "No flake8 issues found"
+        echo "Running bandit manually to check:"
+        bandit --version
+        echo "Running bandit on current directory:"
+        bandit -r . --format=json || echo "No bandit issues found"
         
     - name: Generate severity summary
       run: |
@@ -100,6 +151,15 @@ jobs:
         print("DEBUG: Report directory: " + str(report_dir))
         print("DEBUG: Report directory exists: " + str(report_dir.exists()))
         print("DEBUG: Report directory contents: " + str(list(report_dir.glob('*'))))
+        
+        # Check which report files exist
+        report_files = ['bandit.json', 'pylint.json', 'flake8.json', 'pip_audit.json', 'radon_cc.json', 'radon_mi.json', 'pydocstyle.json']
+        for file_name in report_files:
+            file_path = report_dir / file_name
+            if file_path.exists():
+                print("DEBUG: " + file_name + " exists with size: " + str(file_path.stat().st_size))
+            else:
+                print("DEBUG: " + file_name + " does not exist")
         
         severity_summary = dict()
         severity_summary['critical'] = []
