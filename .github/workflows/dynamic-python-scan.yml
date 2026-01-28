@@ -58,8 +58,13 @@ jobs:
         echo "Python files found:"
         find . -name "*.py" -type f | head -10
         echo "=== Running Scan Commands ==="
+        echo "DEBUG: Current directory: $(pwd)"
+        echo "DEBUG: Python files in current directory:"
+        find . -name "*.py" -type f -exec echo "  - {}" \;
+        echo "DEBUG: About to execute scan_commands..."
         echo 'Running Bandit Security Scanner...'
         bandit -r . -f json > $REPORT_DIR/bandit.json 2>/dev/null || echo '{}' > $REPORT_DIR/bandit.json
+        echo "DEBUG: scan_commands completed"
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
         ls -la $REPORT_DIR/
@@ -128,14 +133,20 @@ jobs:
           echo "Pydocstyle report NOT found"
         fi
         echo "=== Manual tool checks ==="
+        echo "Running bandit manually to debug:"
+        echo "Bandit version:"
+        bandit --version
+        echo "Manual bandit execution:"
+        bandit -r . -f json || echo "Bandit failed"
+        echo "Manual bandit to file:"
+        bandit -r . -f json > $REPORT_DIR/manual_bandit.json 2>/dev/null || echo "Manual bandit to file failed"
+        echo "Manual bandit file size: $(wc -c < $REPORT_DIR/manual_bandit.json 2>/dev/null || echo '0')"
+        echo "Manual bandit file preview:"
+        head -10 $REPORT_DIR/manual_bandit.json 2>/dev/null || echo "No manual bandit file"
         echo "Running flake8 manually to check:"
         flake8 . --version
         echo "Running flake8 on current directory:"
         flake8 . --format=json || echo "No flake8 issues found"
-        echo "Running bandit manually to check:"
-        bandit --version
-        echo "Running bandit on current directory:"
-        bandit -r . --format=json || echo "No bandit issues found"
         
     - name: Generate severity summary
       run: |
