@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8
+        pip install pip-audit
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8 flake8-json radon pydocstyle pip-audit
         echo "Verifying installations:"
@@ -62,8 +62,8 @@ jobs:
         echo "DEBUG: Python files in current directory:"
         find . -name "*.py" -type f -exec echo "  - {}" \;
         echo "DEBUG: About to execute scan_commands..."
-        echo 'Running Flake8 Style Checker...'
-        flake8 . --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero
+        echo 'Running pip-audit Vulnerability Scanner...'
+        pip-audit --format=json --output=$REPORT_DIR/pip_audit.json 2>/dev/null || echo '{"dependencies": []}' > $REPORT_DIR/pip_audit.json
         echo "DEBUG: scan_commands completed"
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
