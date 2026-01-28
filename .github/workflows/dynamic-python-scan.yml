@@ -63,7 +63,7 @@ jobs:
         find . -name "*.py" -type f -exec echo "  - {}" \;
         echo "DEBUG: About to execute scan_commands..."
         echo 'Running Bandit Security Scanner...'
-        bandit -r . -f json > $REPORT_DIR/bandit.json 2>/dev/null || echo '{}' > $REPORT_DIR/bandit.json
+        bandit -r . -f json > $REPORT_DIR/bandit.json 2>&1 || echo '{}' > $REPORT_DIR/bandit.json
         echo "DEBUG: scan_commands completed"
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
@@ -437,6 +437,18 @@ jobs:
         # Save severity summary
         with open(report_dir / 'severity_summary.json', 'w') as f:
             json.dump(severity_summary, f, indent=2)
+        
+        # Check manual bandit results if automated failed
+        if (report_dir / 'manual_bandit.json').exists():
+            try:
+                with open(report_dir / 'manual_bandit.json') as f:
+                    manual_bandit_data = json.load(f)
+                    print("DEBUG: Manual bandit results:")
+                    print("Issues found: " + str(len(manual_bandit_data.get('results', []))))
+                    for result in manual_bandit_data.get('results', [])[:5]:  # Show first 5
+                        print("  - " + result.get('test_name', 'Unknown') + ": " + result.get('issue_text', 'No description'))
+            except Exception as e:
+                print("DEBUG: Error reading manual bandit: " + str(e))
         
         print("=== FINAL SEVERITY SUMMARY ===")
         for severity, issues in severity_summary.items():
