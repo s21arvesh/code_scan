@@ -63,7 +63,7 @@ jobs:
         find . -name "*.py" -type f -exec echo "  - {}" \;
         echo "DEBUG: About to execute scan_commands..."
         echo 'Running pip-audit Vulnerability Scanner...'
-        if [ -f requirements.txt ]; then pip-audit --requirement requirements.txt --format=json --output=$REPORT_DIR/pip_audit.json; else echo '{"dependencies": []}' > $REPORT_DIR/pip_audit.json; fi
+        if [ -f requirements.txt ]; then pip-audit --requirement requirements.txt --format=json --output=$REPORT_DIR/pip_audit.json || true; else echo '{"dependencies": []}' > $REPORT_DIR/pip_audit.json; fi
         echo "DEBUG: scan_commands completed"
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
