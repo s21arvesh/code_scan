@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install bandit pip-audit radon flake8 pylint pydocstyle
+        pip install flake8 pylint bandit radon pip-audit pydocstyle
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
@@ -253,17 +253,31 @@ jobs:
             try:
                 with open(report_dir / 'pip_audit.json') as f:
                     pip_audit_data = json.load(f)
-                    for vuln in pip_audit_data.get('vulnerabilities', []):
-                        severity = vuln.get('severity', 'unknown').lower()
-                        if severity in severity_summary:
-                            severity_summary[severity].append(dict(
-                                tool='pip-audit',
-                                file='requirements.txt',
-                                issue=vuln.get('name', 'vulnerability'),
-                                message=vuln.get('description', 'Security vulnerability')
-                            ))
+                    print("DEBUG: Pip-audit data loaded: " + str(len(pip_audit_data.get('dependencies', []))) + " dependencies found")
+                    print("DEBUG: Pip-audit raw data structure: " + str(list(pip_audit_data.keys()) if isinstance(pip_audit_data, dict) else type(pip_audit_data)))
+                    for vuln in pip_audit_data.get('dependencies', []):
+                        # Check if this dependency has vulnerabilities
+                        if 'vulns' in vuln and vuln['vulns']:
+                            severity = vuln.get('severity', 'unknown').lower()
+                            if severity in severity_summary:
+                                severity_summary[severity].append(dict(
+                                    tool='pip-audit',
+                                    file='requirements.txt',
+                                    issue=vuln.get('name', 'vulnerability'),
+                                    message=vuln.get('description', 'Security vulnerability')
+                                ))
+                    print("DEBUG: Pip-audit severity summary: " + str(severity_summary))
             except Exception as e:
                 print("Error processing pip_audit.json: " + str(e))
+                print("DEBUG: Pip-audit file content preview:")
+                try:
+                    with open(report_dir / 'pip_audit.json', 'r') as f:
+                        content = f.read()[:500]  # First 500 chars
+                        print("DEBUG: " + content)
+                except:
+                    print("DEBUG: Could not read pip_audit.json file")
+        else:
+            print("DEBUG: pip_audit.json file not found")
         
         # Process Flake8 results
         if (report_dir / 'flake8.json').exists():
@@ -315,6 +329,8 @@ jobs:
             try:
                 with open(report_dir / 'radon_cc.json') as f:
                     radon_data = json.load(f)
+                    print("DEBUG: Radon CC data loaded: " + str(len(radon_data)) + " files analyzed")
+                    print("DEBUG: Radon CC raw data structure: " + str(list(radon_data.keys()) if isinstance(radon_data, dict) else type(radon_data)))
                     for file_path, metrics in radon_data.items():
                         complexity = metrics.get('total_complexity', 0)
                         if complexity > 10:
@@ -331,14 +347,26 @@ jobs:
                                 issue='medium_complexity',
                                 message='Cyclomatic complexity: ' + str(complexity)
                             ))
+                    print("DEBUG: Radon CC severity summary: " + str(severity_summary))
             except Exception as e:
                 print("Error processing radon_cc.json: " + str(e))
+                print("DEBUG: Radon CC file content preview:")
+                try:
+                    with open(report_dir / 'radon_cc.json', 'r') as f:
+                        content = f.read()[:500]  # First 500 chars
+                        print("DEBUG: " + content)
+                except:
+                    print("DEBUG: Could not read radon_cc.json file")
+        else:
+            print("DEBUG: radon_cc.json file not found")
         
         # Process Radon Maintainability Index results
         if (report_dir / 'radon_mi.json').exists():
             try:
                 with open(report_dir / 'radon_mi.json') as f:
                     radon_data = json.load(f)
+                    print("DEBUG: Radon MI data loaded: " + str(len(radon_data)) + " files analyzed")
+                    print("DEBUG: Radon MI raw data structure: " + str(list(radon_data.keys()) if isinstance(radon_data, dict) else type(radon_data)))
                     for file_path, metrics in radon_data.items():
                         mi_score = metrics.get('mi', 0)
                         if mi_score < 20:
@@ -355,14 +383,26 @@ jobs:
                                 issue='medium_maintainability',
                                 message='Maintainability Index: ' + str(mi_score)
                             ))
+                    print("DEBUG: Radon MI severity summary: " + str(severity_summary))
             except Exception as e:
                 print("Error processing radon_mi.json: " + str(e))
+                print("DEBUG: Radon MI file content preview:")
+                try:
+                    with open(report_dir / 'radon_mi.json', 'r') as f:
+                        content = f.read()[:500]  # First 500 chars
+                        print("DEBUG: " + content)
+                except:
+                    print("DEBUG: Could not read radon_mi.json file")
+        else:
+            print("DEBUG: radon_mi.json file not found")
         
         # Process Pydocstyle results
         if (report_dir / 'pydocstyle.json').exists():
             try:
                 with open(report_dir / 'pydocstyle.json') as f:
                     pydocstyle_data = json.load(f)
+                    print("DEBUG: Pydocstyle data loaded: " + str(len(pydocstyle_data)) + " issues found")
+                    print("DEBUG: Pydocstyle raw data structure: " + str(list(pydocstyle_data.keys()) if isinstance(pydocstyle_data, dict) else type(pydocstyle_data)))
                     for result in pydocstyle_data:
                         code = result.get('code', '')
                         if code.startswith('D'):
@@ -373,13 +413,26 @@ jobs:
                                 issue=code,
                                 message=result.get('message', 'Documentation style')
                             ))
+                    print("DEBUG: Pydocstyle severity summary: " + str(severity_summary))
             except Exception as e:
                 print("Error processing pydocstyle.json: " + str(e))
+                print("DEBUG: Pydocstyle file content preview:")
+                try:
+                    with open(report_dir / 'pydocstyle.json', 'r') as f:
+                        content = f.read()[:500]  # First 500 chars
+                        print("DEBUG: " + content)
+                except:
+                    print("DEBUG: Could not read pydocstyle.json file")
+        else:
+            print("DEBUG: pydocstyle.json file not found")
         
         # Save severity summary
         with open(report_dir / 'severity_summary.json', 'w') as f:
             json.dump(severity_summary, f, indent=2)
-            
+        
+        print("=== FINAL SEVERITY SUMMARY ===")
+        for severity, issues in severity_summary.items():
+            print(str(severity) + ": " + str(len(issues)) + " issues")
         print("Severity summary generated successfully")
         EOF
         
