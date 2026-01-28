@@ -263,12 +263,24 @@ jobs:
                     pip_audit_data = json.load(f)
                     print("DEBUG: Pip-audit data loaded: " + str(len(pip_audit_data.get('dependencies', []))) + " dependencies found")
                     print("DEBUG: Pip-audit raw data structure: " + str(list(pip_audit_data.keys()) if isinstance(pip_audit_data, dict) else type(pip_audit_data)))
+                    
+                    # Debug: Show first dependency structure
+                    deps = pip_audit_data.get('dependencies', [])
+                    if deps:
+                        print("DEBUG: First dependency structure: " + str(deps[0]))
+                        print("DEBUG: First dependency keys: " + str(list(deps[0].keys()) if isinstance(deps[0], dict) else type(deps[0])))
+                    
+                    vuln_count = 0
                     for dep in pip_audit_data.get('dependencies', []):
                         # Check if this dependency has vulnerabilities
                         if 'vulns' in dep and dep['vulns']:
+                            print("DEBUG: Found vulnerable dependency: " + dep.get('name', 'unknown'))
                             for vuln in dep['vulns']:
+                                vuln_count += 1
+                                print("DEBUG: Processing vulnerability: " + str(vuln))
                                 # Map pip-audit severity to our severity levels
                                 audit_severity = vuln.get('severity', 'unknown').lower()
+                                print("DEBUG: Audit severity: " + audit_severity)
                                 if audit_severity in ['critical', 'high']:
                                     severity = 'critical'
                                 elif audit_severity in ['medium', 'moderate']:
@@ -278,6 +290,7 @@ jobs:
                                 else:
                                     severity = 'low'
                                 
+                                print("DEBUG: Mapped severity: " + severity)
                                 if severity in severity_summary:
                                     severity_summary[severity].append(dict(
                                         tool='pip-audit',
@@ -287,6 +300,7 @@ jobs:
                                         CVE=vuln.get('cve', 'No CVE'),
                                         version=dep.get('version', 'unknown')
                                     ))
+                    print("DEBUG: Total vulnerabilities processed: " + str(vuln_count))
                     print("DEBUG: Pip-audit severity summary: " + str(severity_summary))
             except Exception as e:
                 print("Error processing pip_audit.json: " + str(e))
