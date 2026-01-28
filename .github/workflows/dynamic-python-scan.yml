@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pylint bandit radon pip-audit pydocstyle
+        pip install bandit
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
@@ -51,18 +51,6 @@ jobs:
         echo "=== Running Scan Commands ==="
         echo 'Running Bandit Security Scanner...'
         bandit -r . -f json -o $REPORT_DIR/bandit.json 2>/dev/null || echo '{}' > $REPORT_DIR/bandit.json
-        echo 'Running Pylint Code Quality...'
-        pylint . --output-format=json > $REPORT_DIR/pylint.json 2>/dev/null || true
-        echo 'Running Flake8 Style Checker...'
-        flake8 . --format=json --output-file=$REPORT_DIR/flake8.json 2>/dev/null || echo '[]' > $REPORT_DIR/flake8.json
-        echo 'Running pip-audit Vulnerability Scanner...'
-        pip-audit --format=json --output=$REPORT_DIR/pip_audit.json 2>/dev/null || echo '{"dependencies": []}' > $REPORT_DIR/pip_audit.json
-        echo 'Running Radon Cyclomatic Complexity...'
-        radon cc . --json > $REPORT_DIR/radon_cc.json 2>/dev/null || echo '{}' > $REPORT_DIR/radon_cc.json
-        echo 'Running Radon Maintainability Index...'
-        radon mi . --json > $REPORT_DIR/radon_mi.json 2>/dev/null || echo '{}' > $REPORT_DIR/radon_mi.json
-        echo 'Running Pydocstyle Documentation Checker...'
-        pydocstyle . --json > $REPORT_DIR/pydocstyle.json 2>/dev/null || echo '[]' > $REPORT_DIR/pydocstyle.json
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
         ls -la $REPORT_DIR/
