@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install bandit pylint
+        pip install pylint flake8 bandit
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
@@ -44,10 +44,12 @@ jobs:
     - name: Run Python code scans
       run: |
         echo "Starting Python code scans..."
-        echo 'Running Pylint Code Quality...'
-        pylint **/*.py --output-format=json > $REPORT_DIR/pylint.json || true
         echo 'Running Bandit Security Scanner...'
         bandit -r . -f json -o $REPORT_DIR/bandit.json || true
+        echo 'Running Pylint Code Quality...'
+        pylint **/*.py --output-format=json > $REPORT_DIR/pylint.json || true
+        echo 'Running Flake8 Style Checker...'
+        flake8 --format=json > $REPORT_DIR/flake8.json || true
         echo "All scans completed. Reports saved to $REPORT_DIR"
         
     - name: Generate severity summary
