@@ -38,7 +38,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8
         echo "Installing additional scan tools..."
-        pip install bandit pylint flake8 radon pydocstyle pip-audit
+        pip install bandit pylint flake8 flake8-json radon pydocstyle pip-audit
         echo "Verifying installations:"
         bandit --version
         pylint --version
