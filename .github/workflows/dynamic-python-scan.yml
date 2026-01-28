@@ -63,7 +63,7 @@ jobs:
         find . -name "*.py" -type f -exec echo "  - {}" \;
         echo "DEBUG: About to execute scan_commands..."
         echo 'Running Bandit Security Scanner...'
-        bandit -r . -f json > $REPORT_DIR/bandit.json || echo '{}' > $REPORT_DIR/bandit.json
+        bandit -r . -f json > $REPORT_DIR/bandit.json 2>/dev/null || echo '{}' > $REPORT_DIR/bandit.json
         echo "DEBUG: scan_commands completed"
         echo "=== Scan Commands Completed ==="
         echo "Report directory contents after scans:"
