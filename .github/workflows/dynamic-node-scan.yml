@@ -55,10 +55,10 @@ jobs:
         echo 'JavaScript files found:'
         find . -name "*.js" -type f | head -10
         echo '=== Running Scan Commands ==='
+        echo 'Running JSHint...'
+        jshint . --reporter=json > $REPORT_DIR/jshint.json || true
         echo 'Running ESLint...'
         eslint . --format=json --output-file=$REPORT_DIR/eslint.json || true
-        echo 'Running NPM Audit...'
-        npm-audit-ci --moderate --report json > $REPORT_DIR/npm_audit.json || true
         echo '=== Scan Commands Completed ==='
         echo 'Report directory contents after scans:'
         ls -la $REPORT_DIR/
