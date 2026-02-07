@@ -32,7 +32,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint bandit
+        pip install bandit pylint
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
         echo "Verifying installations:"
@@ -303,15 +303,8 @@ jobs:
                     vuln_count = 0
                     for dep in pip_audit_data.get("dependencies", []):
                         for vuln in dep.get("vulns", []):
-                            severity = vuln.get("severity", "low").lower()
-                            mapped = (
-                                "critical" if severity == "critical"
-                                else "high" if severity == "high"
-                                else "medium" if severity == "medium"
-                                else "low"
-                            )
-
-                            severity_summary[mapped].append({
+                            # pip-audit does NOT give severity → treat all as HIGH
+                            severity_summary["high"].append({
                                 "tool": "pip-audit",
                                 "file": dep.get("name"),
                                 "issue": vuln.get("id"),
@@ -378,13 +371,13 @@ jobs:
                             continue
                         for block in blocks:
                             complexity = block.get("complexity", 0)
-                            if complexity >= 10:
+                            if complexity >= 5:
                                 severity_summary["medium"].append(dict(
                                     tool="radon_cc",
                                     file=file_path,
                                     line=block.get("lineno", 0),
                                     issue="high_cyclomatic_complexity",
-                                    message=f"{{block.get('name')}} complexity = {{complexity}}"
+                                    message=block.get('name') + " complexity = " + str(complexity)
                                 ))
                     print("DEBUG: Radon CC severity summary: " + str(severity_summary))
             except Exception as e:
@@ -408,9 +401,9 @@ jobs:
                     print("DEBUG: Radon MI raw data structure: " + str(list(radon_data.keys()) if isinstance(radon_data, dict) else type(radon_data)))
                     for file, data in radon_data.items():
                         mi = data.get("mi", 100)
-                        if mi < 50:
+                        if mi < 75:
                             severity = "medium"
-                        elif mi < 65:
+                        elif mi < 90:
                             severity = "low"
                         else:
                             continue
@@ -440,7 +433,7 @@ jobs:
                 with open(report_dir / 'pydocstyle.json') as f:
                     pydocstyle_data = json.load(f)
                     print("DEBUG: Pydocstyle data loaded: " + str(len(pydocstyle_data)) + " issues found")
-                    print("DEBUG: Pydocstyle raw data structure: " + str(list(pydocstyle_data.keys()) if isinstance(pydocstyle_data, dict) else type(pydocstyle_data)))
+                    print("DEBUG: Pydocstyle issues: " + str(len(pydocstyle_data)))
                     for issue in pydocstyle_data:
                         severity_summary["low"].append({
                             "tool": "pydocstyle",
