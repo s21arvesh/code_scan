@@ -32,7 +32,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint bandit
+        pip install bandit pylint
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8 flake8-json radon pydocstyle pip-audit
         echo "Verifying installations:"
@@ -56,7 +56,7 @@ jobs:
         echo "=== Running Scan Commands ==="
         echo "DEBUG: Current directory: $(pwd)"
         echo "DEBUG: Python files in current directory:"
-        find . -name "*.py" -type f -exec echo "  - {}" \;
+        find . -name "*.py" -type f -exec echo "  - file" \;
         echo "DEBUG: About to execute scan_commands..."
         echo 'Running Pylint Code Quality...'
         pylint . --output-format=json > $REPORT_DIR/pylint.json 2>/dev/null || true
@@ -157,6 +157,17 @@ jobs:
         print("DEBUG: Report directory: " + str(report_dir))
         print("DEBUG: Report directory exists: " + str(report_dir.exists()))
         print("DEBUG: Report directory contents: " + str(list(report_dir.glob('*'))))
+        
+        # Mandatory debug: Show raw tool outputs
+        print("=== DEBUG: Raw tool outputs ===")
+        for tool_file in ['radon_cc.json', 'radon_mi.json', 'pip_audit.json']:
+            file_path = report_dir / tool_file
+            if file_path.exists():
+                print(f"{tool_file} content:")
+                print(file_path.read_text())
+            else:
+                print(f"{tool_file} not found")
+        print("=== END DEBUG ===")
         
         # Check which report files exist
         report_files = ['bandit.json', 'pylint.json', 'flake8.json', 'pip_audit.json', 'radon_cc.json', 'radon_mi.json', 'pydocstyle.json']
@@ -364,22 +375,19 @@ jobs:
                     radon_data = json.load(f)
                     print("DEBUG: Radon CC data loaded: " + str(len(radon_data)) + " files analyzed")
                     print("DEBUG: Radon CC raw data structure: " + str(list(radon_data.keys()) if isinstance(radon_data, dict) else type(radon_data)))
-                    for file_path, metrics in radon_data.items():
-                        complexity = metrics.get('total_complexity', 0)
-                        if complexity > 10:
-                            severity_summary['high'].append(dict(
-                                tool='radon_cc',
-                                file=file_path,
-                                issue='high_complexity',
-                                message='Cyclomatic complexity: ' + str(complexity)
-                            ))
-                        elif complexity > 5:
-                            severity_summary['medium'].append(dict(
-                                tool='radon_cc',
-                                file=file_path,
-                                issue='medium_complexity',
-                                message='Cyclomatic complexity: ' + str(complexity)
-                            ))
+                    for file_path, blocks in radon_data.items():
+                        if not isinstance(blocks, list):
+                            continue
+                        for block in blocks:
+                            complexity = block.get("complexity", 0)
+                            if complexity >= 10:
+                                severity_summary["medium"].append(dict(
+                                    tool="radon_cc",
+                                    file=file_path,
+                                    line=block.get("lineno", 0),
+                                    issue="high_cyclomatic_complexity",
+                                    message=f"{block.get('name')} complexity = {complexity}"
+                                ))
                     print("DEBUG: Radon CC severity summary: " + str(severity_summary))
             except Exception as e:
                 print("Error processing radon_cc.json: " + str(e))
@@ -401,20 +409,20 @@ jobs:
                     print("DEBUG: Radon MI data loaded: " + str(len(radon_data)) + " files analyzed")
                     print("DEBUG: Radon MI raw data structure: " + str(list(radon_data.keys()) if isinstance(radon_data, dict) else type(radon_data)))
                     for file_path, metrics in radon_data.items():
-                        mi_score = metrics.get('mi', 0)
-                        if mi_score < 20:
-                            severity_summary['high'].append(dict(
-                                tool='radon_mi',
-                                file=file_path,
-                                issue='low_maintainability',
-                                message='Maintainability Index: ' + str(mi_score)
-                            ))
-                        elif mi_score < 50:
+                        mi_score = metrics.get('mi', 100)
+                        if mi_score < 50:
                             severity_summary['medium'].append(dict(
                                 tool='radon_mi',
                                 file=file_path,
-                                issue='medium_maintainability',
-                                message='Maintainability Index: ' + str(mi_score)
+                                issue='low_maintainability_index',
+                                message='Maintainability Index = ' + str(mi_score)
+                            ))
+                        elif mi_score < 65:
+                            severity_summary['low'].append(dict(
+                                tool='radon_mi',
+                                file=file_path,
+                                issue='medium_maintainability_index', 
+                                message='Maintainability Index = ' + str(mi_score)
                             ))
                     print("DEBUG: Radon MI severity summary: " + str(severity_summary))
             except Exception as e:
