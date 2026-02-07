@@ -32,7 +32,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install bandit flake8==6.1.0 flake8-json==24.4.0 pip-audit pydocstyle radon pylint
+        pip install pylint pydocstyle flake8==6.1.0 flake8-json==24.4.0 bandit pip-audit radon
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
         echo "Verifying installations:"
@@ -78,7 +78,7 @@ jobs:
 
         pip-audit -f json -o $REPORT_DIR/pip_audit.json || true
 
-        radon cc . -j > $REPORT_DIR/radon_cc.json || true
+        radon cc . -a -j > $REPORT_DIR/radon_cc.json || true
 
         radon mi . -j > $REPORT_DIR/radon_mi.json || true
 
@@ -184,10 +184,10 @@ jobs:
         for tool_file in ['radon_cc.json', 'radon_mi.json', 'pip_audit.json']:
             file_path = report_dir / tool_file
             if file_path.exists():
-                print(f"{{tool_file}} content:")
+                print(tool_file + " content:")
                 print(file_path.read_text())
             else:
-                print(f"{{tool_file}} not found")
+                print(tool_file + " not found")
         print("=== END DEBUG ===")
         
         # Check which report files exist
