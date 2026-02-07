@@ -51,8 +51,9 @@ jobs:
     - name: DEBUG flake8 JSON output
       run: |
         mkdir -p scan-reports
-        echo "print('hello')" > test_flake8.py
-        flake8 test_flake8.py --format=json --output-file=scan-reports/flake8.json || true
+        echo "x=1  # E702: multiple statements on one line" > bad_flake8.py
+        echo "import os,sys  # E401: multiple imports on one line" >> bad_flake8.py
+        flake8 bad_flake8.py --format=json --output-file=scan-reports/flake8.json --exit-zero || true
         echo "DEBUG: flake8.json:"
         ls -l scan-reports || true
         cat scan-reports/flake8.json || echo "flake8.json not created"
