@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    environment:
+      - API_KEY=sk_1234567890abcdef
+      - DATABASE_PASSWORD=super_secret_password_123
+      - JWT_SECRET=jwt_secret_key_456
+    ports:
+      - "5000:5000"
+  
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_PASSWORD=admin_password_789
+      - POSTGRES_USER=admin
+      - POSTGRES_DB=production
