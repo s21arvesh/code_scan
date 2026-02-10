@@ -32,7 +32,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit bandit pylint
+        pip install radon curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin bandit curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin pylint go install github.com/google/osv-scanner/cmd/osv-scanner@latest || osv-scanner flake8==6.1.0 flake8-json==24.4.0 pydocstyle pip-audit scancode-toolkit trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin wget -q https://github.com/zricethezav/gitleaks/releases/latest/download/gitleaks-linux-amd64 -O /usr/local/bin/gitleaks && chmod +x /usr/local/bin/gitleaks
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
         echo "Installing dependency scanning tools..."
