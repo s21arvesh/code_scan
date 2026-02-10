@@ -33,7 +33,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install pip-audit radon trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest scancode-toolkit pylint bandit flake8==6.1.0 flake8-json==24.4.0 pydocstyle
+        pip install pydocstyle trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest flake8==6.1.0 flake8-json==24.4.0 scancode-toolkit radon pylint bandit pip-audit
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
         echo "Installing Go for dependency scanning tools..."
@@ -513,6 +513,177 @@ jobs:
                     print("DEBUG: Could not read pydocstyle.json file")
         else:
             print("DEBUG: pydocstyle.json file not found")
+        
+        # Process OSV Scanner results
+        if (report_dir / 'osv_scanner.json').exists():
+            try:
+                with open(report_dir / 'osv_scanner.json') as f:
+                    osv_data = json.load(f)
+                    results = osv_data.get('results', [])
+                    for result in results:
+                        for vuln in result.get('vulns', []):
+                            severity_summary["high"].append({
+                                "tool": "osv_scanner",
+                                "file": result.get('source', {}).get('path', 'unknown'),
+                                "issue": vuln.get('id', 'unknown'),
+                                "message": vuln.get('summary', 'Vulnerability found')
+                            })
+                    print("DEBUG: OSV Scanner processed: " + str(len(results)) + " results")
+            except Exception as e:
+                print("Error processing osv_scanner.json: " + str(e))
+        else:
+            print("DEBUG: osv_scanner.json file not found")
+        
+        # Process Syft SBOM results
+        if (report_dir / 'syft.json').exists():
+            try:
+                with open(report_dir / 'syft.json') as f:
+                    syft_data = json.load(f)
+                    artifacts = syft_data.get('artifacts', [])
+                    for artifact in artifacts:
+                        severity_summary["info"].append({
+                            "tool": "syft",
+                            "file": artifact.get('name', 'unknown'),
+                            "issue": "sbom_component",
+                            "message": artifact.get('name', '') + "@" + artifact.get('version', 'unknown') + " (" + artifact.get('type', 'unknown') + ")"
+                        })
+                    print("DEBUG: Syft processed: " + str(len(artifacts)) + " artifacts")
+            except Exception as e:
+                print("Error processing syft.json: " + str(e))
+        else:
+            print("DEBUG: syft.json file not found")
+        
+        # Process Trivy results
+        if (report_dir / 'trivy.json').exists():
+            try:
+                with open(report_dir / 'trivy.json') as f:
+                    trivy_data = json.load(f)
+                    for result in trivy_data.get('Results', []):
+                        for vuln in result.get('Vulnerabilities', []):
+                            trivy_sev = vuln.get('Severity', 'UNKNOWN').upper()
+                            if trivy_sev == 'CRITICAL':
+                                sev_key = 'critical'
+                            elif trivy_sev == 'HIGH':
+                                sev_key = 'high'
+                            elif trivy_sev == 'MEDIUM':
+                                sev_key = 'medium'
+                            elif trivy_sev == 'LOW':
+                                sev_key = 'low'
+                            else:
+                                sev_key = 'info'
+                            severity_summary[sev_key].append({
+                                "tool": "trivy",
+                                "file": result.get('Target', 'unknown'),
+                                "issue": vuln.get('VulnerabilityID', 'unknown'),
+                                "message": vuln.get('Title', vuln.get('Description', 'Vulnerability found'))
+                            })
+                    print("DEBUG: Trivy processed")
+            except Exception as e:
+                print("Error processing trivy.json: " + str(e))
+        else:
+            print("DEBUG: trivy.json file not found")
+        
+        # Process Grype results
+        if (report_dir / 'grype.json').exists():
+            try:
+                with open(report_dir / 'grype.json') as f:
+                    grype_data = json.load(f)
+                    for match in grype_data.get('matches', []):
+                        vuln = match.get('vulnerability', {})
+                        grype_sev = vuln.get('severity', 'Unknown').upper()
+                        if grype_sev == 'CRITICAL':
+                            sev_key = 'critical'
+                        elif grype_sev == 'HIGH':
+                            sev_key = 'high'
+                        elif grype_sev == 'MEDIUM':
+                            sev_key = 'medium'
+                        elif grype_sev == 'LOW':
+                            sev_key = 'low'
+                        else:
+                            sev_key = 'info'
+                        artifact = match.get('artifact', {})
+                        severity_summary[sev_key].append({
+                            "tool": "grype",
+                            "file": artifact.get('name', 'unknown'),
+                            "issue": vuln.get('id', 'unknown'),
+                            "message": vuln.get('description', 'Vulnerability in ' + artifact.get('name', 'unknown') + "@" + artifact.get('version', 'unknown'))
+                        })
+                    print("DEBUG: Grype processed: " + str(len(grype_data.get('matches', []))) + " matches")
+            except Exception as e:
+                print("Error processing grype.json: " + str(e))
+        else:
+            print("DEBUG: grype.json file not found")
+        
+        # Process ScanCode results
+        if (report_dir / 'scancode.json').exists():
+            try:
+                with open(report_dir / 'scancode.json') as f:
+                    scancode_data = json.load(f)
+                    for file_entry in scancode_data.get('files', []):
+                        for license_det in file_entry.get('license_detections', []):
+                            severity_summary["info"].append({
+                                "tool": "scancode",
+                                "file": file_entry.get('path', 'unknown'),
+                                "issue": "license_detection",
+                                "message": license_det.get('license_expression', 'License detected')
+                            })
+                        for package in file_entry.get('packages', []):
+                            severity_summary["info"].append({
+                                "tool": "scancode",
+                                "file": file_entry.get('path', 'unknown'),
+                                "issue": "package_detected",
+                                "message": package.get('name', 'unknown') + "@" + str(package.get('version', 'unknown'))
+                            })
+                    print("DEBUG: ScanCode processed: " + str(len(scancode_data.get('files', []))) + " files")
+            except Exception as e:
+                print("Error processing scancode.json: " + str(e))
+        else:
+            print("DEBUG: scancode.json file not found")
+        
+        # Process TruffleHog results
+        if (report_dir / 'trufflehog.json').exists():
+            try:
+                with open(report_dir / 'trufflehog.json') as f:
+                    content = f.read().strip()
+                    if content:
+                        for line in content.split('\n'):
+                            line = line.strip()
+                            if line:
+                                try:
+                                    finding = json.loads(line)
+                                    severity_summary["critical"].append({
+                                        "tool": "trufflehog",
+                                        "file": finding.get('SourceMetadata', {}).get('Data', {}).get('Filesystem', {}).get('file', 'unknown'),
+                                        "issue": "credential_leak",
+                                        "message": "Detected: " + finding.get('DetectorName', 'unknown') + " - " + finding.get('DecoderName', '')
+                                    })
+                                except json.JSONDecodeError:
+                                    pass
+                    print("DEBUG: TruffleHog processed")
+            except Exception as e:
+                print("Error processing trufflehog.json: " + str(e))
+        else:
+            print("DEBUG: trufflehog.json file not found")
+        
+        # Process Gitleaks results
+        if (report_dir / 'gitleaks.json').exists():
+            try:
+                with open(report_dir / 'gitleaks.json') as f:
+                    gitleaks_data = json.load(f)
+                    if isinstance(gitleaks_data, list):
+                        for finding in gitleaks_data:
+                            severity_summary["critical"].append({
+                                "tool": "gitleaks",
+                                "file": finding.get('File', 'unknown'),
+                                "line": finding.get('StartLine', 0),
+                                "issue": finding.get('RuleID', 'secret_detected'),
+                                "message": "Secret detected: " + finding.get('Description', 'unknown') + " (Match: " + finding.get('Match', '')[:50] + ")"
+                            })
+                    print("DEBUG: Gitleaks processed: " + str(len(gitleaks_data) if isinstance(gitleaks_data, list) else 0) + " findings")
+            except Exception as e:
+                print("Error processing gitleaks.json: " + str(e))
+        else:
+            print("DEBUG: gitleaks.json file not found")
         
         # Save severity summary
         with open(report_dir / 'severity_summary.json', 'w') as f:
