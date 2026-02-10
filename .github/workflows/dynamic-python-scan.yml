@@ -32,9 +32,34 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install bandit pylint pip-audit pydocstyle flake8==6.1.0 flake8-json==24.4.0 radon
+        pip install flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit bandit pylint
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
+        echo "Installing dependency scanning tools..."
+        # Install Go for some tools
+        if command -v go >/dev/null 2>&1; then
+          echo "Go is already installed"
+        else
+          echo "Installing Go..."
+          wget -q https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+          export PATH=$PATH:/usr/local/go/bin
+          echo 'export PATH=$PATH:/usr/local/go/bin' >> $GITHUB_ENV
+        fi
+        # Install OSV Scanner
+        go install github.com/google/osv-scanner/cmd/osv-scanner@latest || pip install osv-scanner
+        # Install ScanCode Toolkit
+        pip install scancode-toolkit
+        # Install Syft
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+        # Install Grype  
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+        # Install Trivy
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+        # Install TruffleHog
+        pip install trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest
+        # Install Gitleaks
+        wget -q https://github.com/zricethezav/gitleaks/releases/latest/download/gitleaks-linux-amd64 -O /usr/local/bin/gitleaks && chmod +x /usr/local/bin/gitleaks
         echo "Verifying installations:"
         bandit --version
         pylint --version
@@ -44,6 +69,13 @@ jobs:
         radon --version
         pydocstyle --version
         pip-audit --version
+        osv-scanner --version || echo "OSV Scanner not available"
+        syft --version || echo "Syft not available"
+        grype --version || echo "Grype not available"
+        trivy --version || echo "Trivy not available"
+        scancode --version || echo "ScanCode not available"
+        trufflehog --version || echo "TruffleHog not available"
+        gitleaks --version || echo "Gitleaks not available"
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
