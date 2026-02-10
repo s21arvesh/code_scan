@@ -32,10 +32,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install radon curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin bandit curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin pylint go install github.com/google/osv-scanner/cmd/osv-scanner@latest || osv-scanner flake8==6.1.0 flake8-json==24.4.0 pydocstyle pip-audit scancode-toolkit trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin wget -q https://github.com/zricethezav/gitleaks/releases/latest/download/gitleaks-linux-amd64 -O /usr/local/bin/gitleaks && chmod +x /usr/local/bin/gitleaks
+        echo "Installing Python packages..."
+        pip install pylint pip-audit bandit flake8==6.1.0 flake8-json==24.4.0 scancode-toolkit trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest pydocstyle radon
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
-        echo "Installing dependency scanning tools..."
+        echo "Installing Go for dependency scanning tools..."
         # Install Go for some tools
         if command -v go >/dev/null 2>&1; then
           echo "Go is already installed"
@@ -46,19 +47,11 @@ jobs:
           export PATH=$PATH:/usr/local/go/bin
           echo 'export PATH=$PATH:/usr/local/go/bin' >> $GITHUB_ENV
         fi
-        # Install OSV Scanner
+        echo "Installing dependency scanning tools..."
         go install github.com/google/osv-scanner/cmd/osv-scanner@latest || pip install osv-scanner
-        # Install ScanCode Toolkit
-        pip install scancode-toolkit
-        # Install Syft
         curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-        # Install Grype  
-        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-        # Install Trivy
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-        # Install TruffleHog
-        pip install trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest
-        # Install Gitleaks
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
         wget -q https://github.com/zricethezav/gitleaks/releases/latest/download/gitleaks-linux-amd64 -O /usr/local/bin/gitleaks && chmod +x /usr/local/bin/gitleaks
         echo "Verifying installations:"
         bandit --version
