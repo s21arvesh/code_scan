@@ -33,7 +33,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install flake8==6.1.0 flake8-json==24.4.0 trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest pip-audit pydocstyle radon scancode-toolkit pylint bandit
+        pip install trufflehog || go install github.com/trufflesecurity/trufflehog/v3/cmd/trufflehog@latest pydocstyle pylint radon bandit flake8==6.1.0 flake8-json==24.4.0 pip-audit scancode-toolkit
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
         echo "Installing Go for dependency scanning tools..."
