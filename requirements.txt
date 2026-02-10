@@ -1,5 +1,7 @@
 requests==2.19.1
 django==1.11
-requests==2.25.1  # Known vulnerability
-urllib3==1.26.0   # Known vulnerability
-flask==2.0.1
+requests==2.25.1  # Known vulnerable version
+urllib3==1.26.0   # Known vulnerable version  
+flask==1.0.0      # Old version
+numpy==1.19.0     # Known vulnerabilities
+pandas==1.1.0     # Older version
