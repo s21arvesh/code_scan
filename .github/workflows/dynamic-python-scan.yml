@@ -32,7 +32,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8==6.1.0 flake8-json==24.4.0 bandit pydocstyle pip-audit radon pylint
+        pip install pylint radon pydocstyle flake8==6.1.0 flake8-json==24.4.0 bandit pip-audit
         echo "Installing additional scan tools..."
         pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
         echo "Verifying installations:"
