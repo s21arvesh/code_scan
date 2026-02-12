@@ -32,7 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install bandit flake8==6.1.0 flake8-json==24.4.0 pylint radon pip-audit osv-scanner || go install github.com/google/osv-scanner/cmd/osv-scanner@latest
+        pip install bandit pip-audit radon pylint osv-scanner || go install github.com/google/osv-scanner/cmd/osv-scanner@latest flake8==6.1.0 flake8-json==24.4.0
         
     - name: Install additional scan tools
       run: |
@@ -66,28 +66,28 @@ jobs:
     - name: Run scans
       run: |
         curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
-        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
-        echo 'Running Flake8 Style Checker...'
-        echo 'Running flake8...'; echo 'import os,sys' > force_flake8.py; flake8 force_flake8.py --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true; flake8 . --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
         echo 'Running Bandit Security Scanner...'
         bandit -r . -f json -o $REPORT_DIR/bandit.json || true
-        echo 'Running Radon Cyclomatic Complexity...'
-        radon cc . -a -j > $REPORT_DIR/radon_cc.json || true
-        echo 'Running pip-audit Vulnerability Scanner...'
-        pip-audit -f json -o $REPORT_DIR/pip_audit.json || true
         echo 'Running Syft SBOM Generator...'
         syft . -o json=$REPORT_DIR/syft.json || echo '{"artifacts": []}' > $REPORT_DIR/syft.json
-        echo 'Running OSV Scanner...'
-        osv-scanner scan . --format json --output $REPORT_DIR/osv_scanner.json || echo '{"results": []}' > $REPORT_DIR/osv_scanner.json
-        echo 'Running Pylint Code Quality...'
-        pylint . --output-format=json > $REPORT_DIR/pylint.json 2>/dev/null || true
-        echo 'Running Grype Vulnerability Scanner...'
-        grype dir:. -o json > $REPORT_DIR/grype.json || echo '{"matches": []}' > $REPORT_DIR/grype.json
-        echo 'Running Radon Maintainability Index...'
-        radon mi . -j > $REPORT_DIR/radon_mi.json || true
+        echo 'Running Radon Cyclomatic Complexity...'
+        radon cc . -a -j > $REPORT_DIR/radon_cc.json || true
         echo 'Running Trivy Vulnerability Scanner...'
         trivy fs --format json --output $REPORT_DIR/trivy.json . || echo '{"Results": []}' > $REPORT_DIR/trivy.json
+        echo 'Running Flake8 Style Checker...'
+        echo 'Running flake8...'; echo 'import os,sys' > force_flake8.py; flake8 force_flake8.py --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true; flake8 . --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true
+        echo 'Running pip-audit Vulnerability Scanner...'
+        pip-audit -f json -o $REPORT_DIR/pip_audit.json || true
+        echo 'Running OSV Scanner...'
+        osv-scanner scan . --format json --output $REPORT_DIR/osv_scanner.json || echo '{"results": []}' > $REPORT_DIR/osv_scanner.json
+        echo 'Running Grype Vulnerability Scanner...'
+        grype dir:. -o json > $REPORT_DIR/grype.json || echo '{"matches": []}' > $REPORT_DIR/grype.json
+        echo 'Running Pylint Code Quality...'
+        pylint . --output-format=json > $REPORT_DIR/pylint.json 2>/dev/null || true
+        echo 'Running Radon Maintainability Index...'
+        radon mi . -j > $REPORT_DIR/radon_mi.json || true
         
     - name: Upload scan reports
       uses: actions/upload-artifact@v4
