@@ -32,7 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install pydocstyle pylint flake8==6.1.0 flake8-json==24.4.0 pip-audit radon bandit modelscan
+        pip install bandit flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit pylint
         
     - name: Install additional scan tools
       run: |
@@ -70,12 +70,52 @@ jobs:
         GITLEAKS_VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
         wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -O /tmp/gitleaks.tar.gz && sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && sudo chmod +x /usr/local/bin/gitleaks || echo "Gitleaks installation failed"
         
+        # Install Modelscan
+        pip install modelscan || echo "Modelscan installation failed"
+        
+        # Install Yara Rules Scanner
+        sudo apt-get update && sudo apt-get install -y yara || pip install yara-python || echo "Yara installation failed"
+        
+        # Install ClamAV Antivirus Scanner
+        sudo apt-get update && sudo apt-get install -y clamav clamav-freshclam || echo "ClamAV installation failed"
+        
+        export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
+        echo "PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin" >> $GITHUB_ENV
+        
+        echo "Verifying installations:"
+        which bandit || echo "bandit not found in PATH"
+        which pylint || echo "pylint not found in PATH"
+        which flake8 || echo "flake8 not found in PATH"
+        which osv-scanner || echo "osv-scanner not found in PATH"
+        which syft || echo "syft not found in PATH"
+        which grype || echo "grype not found in PATH"
+        which trivy || echo "trivy not found in PATH"
+        which scancode || echo "scancode not found in PATH"
+        which trufflehog || echo "trufflehog not found in PATH"
+        which gitleaks || echo "gitleaks not found in PATH"
+        which modelscan || echo "modelscan not found in PATH"
+        which yara || echo "yara not found in PATH"
+        which clamscan || echo "clamscan not found in PATH"
+        echo ""
+        echo "Version checks:"
+        bandit --version || echo "bandit version failed"
+        pylint --version || echo "pylint version failed"
+        flake8 --version || echo "flake8 version failed"
+        osv-scanner --version || echo "OSV Scanner version failed"
+        syft --version || echo "Syft version failed"
+        grype --version || echo "Grype version failed"
+        trivy --version || echo "Trivy version failed"
+        scancode --version || echo "ScanCode version failed"
+        trufflehog --version || echo "TruffleHog version failed"
+        gitleaks --version || echo "Gitleaks version failed"
+        modelscan --version || echo "Modelscan version failed"
+        yara --version || echo "Yara version failed"
+        clamscan --version || echo "ClamAV version failed"
         export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
         echo "PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin" >> $GITHUB_ENV
         
         # Install any additional complex tools dynamically
-        sudo apt-get update && sudo apt-get install -y yara || pip install yara-python
-        sudo apt-get update && sudo apt-get install -y clamav clamav-freshclam || echo 'ClamAV installation failed, using fallback'
+        
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
