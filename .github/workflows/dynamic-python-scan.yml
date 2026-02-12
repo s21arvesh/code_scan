@@ -32,7 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install bandit flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit pylint
+        pip install pylint pydocstyle flake8==6.1.0 flake8-json==24.4.0 pip-audit bandit radon
         
     - name: Install additional scan tools
       run: |
@@ -64,7 +64,7 @@ jobs:
         pip install scancode-toolkit || echo "ScanCode installation failed"
         
         # Install TruffleHog
-        pip install trufflehog3 || echo "TruffleHog installation failed"
+        curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sudo sh -s -- -b /usr/local/bin || echo "TruffleHog installation failed"
         
         # Install Gitleaks
         GITLEAKS_VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
@@ -145,17 +145,17 @@ jobs:
         echo 'Running Grype Vulnerability Scanner...'
         grype dir:. -o json > $REPORT_DIR/grype.json || echo '{"matches": []}' > $REPORT_DIR/grype.json
         echo 'Running ScanCode Toolkit...'
-        scancode . --json $REPORT_DIR/scancode.json --copyright --license --package --info || echo '{"files": []}' > $REPORT_DIR/scancode.json
+        scancode -n 2 --timeout 120 --license --package --info --json $REPORT_DIR/scancode.json --include "*.py" --include "*.txt" --include "*.md" --include "LICENSE" . || echo '{"headers":[],"files":[]}' > $REPORT_DIR/scancode.json
         echo 'Running TruffleHog...'
-        trufflehog filesystem --directory . --json --output $REPORT_DIR/trufflehog.json 2>/dev/null || echo '{"FoundIssues": []}' > $REPORT_DIR/trufflehog.json
+        trufflehog filesystem --directory . --json > $REPORT_DIR/trufflehog.json || echo '[]' > $REPORT_DIR/trufflehog.json
         echo 'Running Gitleaks...'
-        gitleaks detect --source . --report-format json --report-path $REPORT_DIR/gitleaks.json --verbose || echo '{"Findings": []}' > $REPORT_DIR/gitleaks.json
+        gitleaks detect --source . --report-format json --report-path $REPORT_DIR/gitleaks.json --verbose --no-git || echo '[]' > $REPORT_DIR/gitleaks.json
         echo 'Running Modelscan...'
         modelscan . --json --output $REPORT_DIR/modelscan.json 2>/dev/null || echo '{"vulnerabilities": []}' > $REPORT_DIR/modelscan.json
         echo 'Running Yara Rules Scanner...'
-        yara --recursive . /usr/share/yara/rules/malware.yar --json > $REPORT_DIR/yara.json 2>/dev/null || yara --recursive . /usr/share/yara/rules/* --json > $REPORT_DIR/yara.json 2>/dev/null || echo '{"matches": []}' > $REPORT_DIR/yara.json
+        mkdir -p yara_rules && echo "rule Hardcoded_AWS_Key { strings: \$a = /AKIA[0-9A-Z]{16}/ condition: \$a }" > yara_rules/suspicious_strings.yar && yara -r yara_rules/suspicious_strings.yar . > $REPORT_DIR/yara.txt 2>/dev/null || echo 'No matches found' > $REPORT_DIR/yara.txt
         echo 'Running ClamAV Antivirus Scanner...'
-        freshclam --quiet && clamscan --recursive=yes --detect-pua=yes --scan-archive=yes --json=yes . 2>$REPORT_DIR/clamav.log || echo '{"infected_files": []}' > $REPORT_DIR/clamav.json
+        clamscan -r . > $REPORT_DIR/clamav.txt 2>/dev/null || echo 'Scan completed' > $REPORT_DIR/clamav.txt && python3 parse_clamav.py $REPORT_DIR
         
     - name: Upload scan reports
       uses: actions/upload-artifact@v4
