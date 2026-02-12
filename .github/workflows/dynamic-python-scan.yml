@@ -32,12 +32,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install bandit pip-audit radon pylint osv-scanner || go install github.com/google/osv-scanner/cmd/osv-scanner@latest flake8==6.1.0 flake8-json==24.4.0
+        pip install radon pip-audit flake8==6.1.0 flake8-json==24.4.0 bandit pylint
         
     - name: Install additional scan tools
       run: |
-        echo "Installing common Python scanning tools..."
-        pip install bandit pylint flake8==6.1.0 flake8-json==24.4.0 radon pydocstyle pip-audit
         echo "Installing Go for dependency scanning tools..."
         if command -v go >/dev/null 2>&1; then
           echo "Go is already installed"
@@ -48,44 +46,59 @@ jobs:
         fi
         export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
         echo "PATH=$PATH:/usr/local/go/bin:$HOME/go/bin" >> $GITHUB_ENV
+        
         echo "Installing dependency scanning tools..."
-        pip install osv-scanner || (go install github.com/google/osv-scanner/cmd/osv-scanner@latest && export PATH=$PATH:$HOME/go/bin) || echo "OSV Scanner installation failed"
+        # Install OSV Scanner (try pip first, fallback to Go)
+        pip install osv-scanner || (go install github.com/google/osv-scanner/cmd/osv-scanner@latest) || echo "OSV Scanner installation failed"
+        
+        # Install Syft
         curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin || echo "Syft installation failed"
+        
+        # Install Grype  
         curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin || echo "Grype installation failed"
+        
+        # Install Trivy
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin || echo "Trivy installation failed"
+        
+        # Install ScanCode Toolkit
         pip install scancode-toolkit || echo "ScanCode installation failed"
+        
+        # Install TruffleHog
         pip install trufflehog3 || echo "TruffleHog installation failed"
+        
+        # Install Gitleaks
         GITLEAKS_VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
         wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -O /tmp/gitleaks.tar.gz && sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && sudo chmod +x /usr/local/bin/gitleaks || echo "Gitleaks installation failed"
+        
         export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
         echo "PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin" >> $GITHUB_ENV
+        
+        # Install any additional complex tools dynamically
+        
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
     
     - name: Run scans
       run: |
-        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
-        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
-        echo 'Running Bandit Security Scanner...'
-        bandit -r . -f json -o $REPORT_DIR/bandit.json || true
-        echo 'Running Syft SBOM Generator...'
-        syft . -o json=$REPORT_DIR/syft.json || echo '{"artifacts": []}' > $REPORT_DIR/syft.json
-        echo 'Running Radon Cyclomatic Complexity...'
-        radon cc . -a -j > $REPORT_DIR/radon_cc.json || true
-        echo 'Running Trivy Vulnerability Scanner...'
-        trivy fs --format json --output $REPORT_DIR/trivy.json . || echo '{"Results": []}' > $REPORT_DIR/trivy.json
-        echo 'Running Flake8 Style Checker...'
-        echo 'Running flake8...'; echo 'import os,sys' > force_flake8.py; flake8 force_flake8.py --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true; flake8 . --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true
         echo 'Running pip-audit Vulnerability Scanner...'
         pip-audit -f json -o $REPORT_DIR/pip_audit.json || true
-        echo 'Running OSV Scanner...'
-        osv-scanner scan . --format json --output $REPORT_DIR/osv_scanner.json || echo '{"results": []}' > $REPORT_DIR/osv_scanner.json
+        echo 'Running Radon Cyclomatic Complexity...'
+        radon cc . -a -j > $REPORT_DIR/radon_cc.json || true
         echo 'Running Grype Vulnerability Scanner...'
         grype dir:. -o json > $REPORT_DIR/grype.json || echo '{"matches": []}' > $REPORT_DIR/grype.json
+        echo 'Running Trivy Vulnerability Scanner...'
+        trivy fs --format json --output $REPORT_DIR/trivy.json . || echo '{"Results": []}' > $REPORT_DIR/trivy.json
+        echo 'Running OSV Scanner...'
+        osv-scanner scan . --format json --output $REPORT_DIR/osv_scanner.json || echo '{"results": []}' > $REPORT_DIR/osv_scanner.json
+        echo 'Running Bandit Security Scanner...'
+        bandit -r . -f json -o $REPORT_DIR/bandit.json || true
         echo 'Running Pylint Code Quality...'
         pylint . --output-format=json > $REPORT_DIR/pylint.json 2>/dev/null || true
+        echo 'Running Flake8 Style Checker...'
+        echo 'Running flake8...'; echo 'import os,sys' > force_flake8.py; flake8 force_flake8.py --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true; flake8 . --format=json --output-file=$REPORT_DIR/flake8.json --exit-zero || true
+        echo 'Running Syft SBOM Generator...'
+        syft . -o json=$REPORT_DIR/syft.json || echo '{"artifacts": []}' > $REPORT_DIR/syft.json
         echo 'Running Radon Maintainability Index...'
         radon mi . -j > $REPORT_DIR/radon_mi.json || true
         
