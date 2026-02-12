@@ -32,7 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install radon pylint bandit pydocstyle modelscan flake8==6.1.0 flake8-json==24.4.0 pip-audit
+        pip install flake8==6.1.0 flake8-json==24.4.0 pydocstyle pylint radon pip-audit bandit modelscan
         
     - name: Install additional scan tools
       run: |
