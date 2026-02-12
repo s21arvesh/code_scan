@@ -20,6 +20,4 @@ class Config:
     
     # 🔐 Encryption Keys
     ENCRYPTION_KEY = "AES256SecretKey12345678901234567890"
-    PRIVATE_KEY = """-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...
------END PRIVATE KEY-----"""
+    API_KEY = "sk_test_51Hxxxxxxx"
