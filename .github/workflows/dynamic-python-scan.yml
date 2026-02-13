@@ -32,7 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         echo "Installing Python packages..."
-        pip install pip-audit radon bandit pylint flake8==6.1.0 flake8-json==24.4.0 pydocstyle
+        pip install bandit radon pydocstyle pylint pip-audit flake8==6.1.0 flake8-json==24.4.0 modelscan
         
     - name: Install additional scan tools
       run: |
@@ -64,65 +64,24 @@ jobs:
         pip install scancode-toolkit || echo "ScanCode installation failed"
         
         # Install TruffleHog
-        curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sudo sh -s -- -b /usr/local/bin || echo "TruffleHog installation failed"
+        pip install trufflehog3 || echo "TruffleHog installation failed"
         
         # Install Gitleaks
         GITLEAKS_VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
         wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -O /tmp/gitleaks.tar.gz && sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && sudo chmod +x /usr/local/bin/gitleaks || echo "Gitleaks installation failed"
         
-        # Install Modelscan
-        pip install modelscan || echo "Modelscan installation failed"
-        
-        # Install Yara Rules Scanner
-        sudo apt-get update && sudo apt-get install -y yara || pip install yara-python || echo "Yara installation failed"
-        
-        # Install ClamAV Antivirus Scanner
-        sudo apt-get update && sudo apt-get install -y clamav clamav-freshclam || echo "ClamAV installation failed"
-        
-        export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
-        echo "PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin" >> $GITHUB_ENV
-        
-        echo "Verifying installations:"
-        which bandit || echo "bandit not found in PATH"
-        which pylint || echo "pylint not found in PATH"
-        which flake8 || echo "flake8 not found in PATH"
-        which osv-scanner || echo "osv-scanner not found in PATH"
-        which syft || echo "syft not found in PATH"
-        which grype || echo "grype not found in PATH"
-        which trivy || echo "trivy not found in PATH"
-        which scancode || echo "scancode not found in PATH"
-        which trufflehog || echo "trufflehog not found in PATH"
-        which gitleaks || echo "gitleaks not found in PATH"
-        which modelscan || echo "modelscan not found in PATH"
-        which yara || echo "yara not found in PATH"
-        which clamscan || echo "clamscan not found in PATH"
-        echo ""
-        echo "Version checks:"
-        bandit --version || echo "bandit version failed"
-        pylint --version || echo "pylint version failed"
-        flake8 --version || echo "flake8 version failed"
-        osv-scanner --version || echo "OSV Scanner version failed"
-        syft --version || echo "Syft version failed"
-        grype --version || echo "Grype version failed"
-        trivy --version || echo "Trivy version failed"
-        scancode --version || echo "ScanCode version failed"
-        trufflehog --version || echo "TruffleHog version failed"
-        gitleaks --version || echo "Gitleaks version failed"
-        modelscan --version || echo "Modelscan version failed"
-        yara --version || echo "Yara version failed"
-        clamscan --version || echo "ClamAV version failed"
         export PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin
         echo "PATH=$PATH:/usr/local/bin:/usr/local/go/bin:$HOME/go/bin" >> $GITHUB_ENV
         
         # Install any additional complex tools dynamically
-        
+        sudo apt-get update && sudo apt-get install -y yara || pip install yara-python
+        sudo apt-get update && sudo apt-get install -y clamav clamav-freshclam || echo 'ClamAV installation failed, using fallback'
         
     - name: Create report directory
       run: mkdir -p $REPORT_DIR
     
     - name: Run scans
       run: |
-        set +e
         echo 'Running Bandit Security Scanner...'
         bandit -r . -f json -o $REPORT_DIR/bandit.json || true
         echo 'Running Pylint Code Quality...'
@@ -146,17 +105,17 @@ jobs:
         echo 'Running Grype Vulnerability Scanner...'
         grype dir:. -o json > $REPORT_DIR/grype.json || echo '{"matches": []}' > $REPORT_DIR/grype.json
         echo 'Running ScanCode Toolkit...'
-        scancode -n 2 --timeout 120 --license --package --info --json $REPORT_DIR/scancode.json --include "*.py" --include "*.txt" --include "*.md" --include "LICENSE" . || echo '{"headers":[],"files":[]}' > $REPORT_DIR/scancode.json
+        scancode . --json $REPORT_DIR/scancode.json --copyright --license --package --info || echo '{"files": []}' > $REPORT_DIR/scancode.json
         echo 'Running TruffleHog...'
-        trufflehog filesystem --directory . --json > $REPORT_DIR/trufflehog.json || echo '[]' > $REPORT_DIR/trufflehog.json
+        trufflehog filesystem --directory . --json --output $REPORT_DIR/trufflehog.json 2>/dev/null || echo '{"FoundIssues": []}' > $REPORT_DIR/trufflehog.json
         echo 'Running Gitleaks...'
-        gitleaks detect --source . --report-format json --report-path $REPORT_DIR/gitleaks.json --verbose --no-git || echo '[]' > $REPORT_DIR/gitleaks.json
+        gitleaks detect --source . --report-format json --report-path $REPORT_DIR/gitleaks.json --verbose || echo '{"Findings": []}' > $REPORT_DIR/gitleaks.json
         echo 'Running Modelscan...'
-        modelscan scan -p . 2>&1 | tee $REPORT_DIR/modelscan.txt || true; echo '{"vulnerabilities": []}' > $REPORT_DIR/modelscan.json
+        modelscan . --json --output $REPORT_DIR/modelscan.json 2>/dev/null || echo '{"vulnerabilities": []}' > $REPORT_DIR/modelscan.json
         echo 'Running Yara Rules Scanner...'
-        mkdir -p yara_rules && echo "rule Hardcoded_AWS_Key { strings: \$a = /AKIA[0-9A-Z]{16}/ condition: \$a }" > yara_rules/suspicious_strings.yar && yara -r yara_rules/suspicious_strings.yar . > $REPORT_DIR/yara.txt 2>/dev/null || echo 'No matches found' > $REPORT_DIR/yara.txt
+        yara --recursive . /usr/share/yara/rules/malware.yar --json > $REPORT_DIR/yara.json 2>/dev/null || yara --recursive . /usr/share/yara/rules/* --json > $REPORT_DIR/yara.json 2>/dev/null || echo '{"matches": []}' > $REPORT_DIR/yara.json
         echo 'Running ClamAV Antivirus Scanner...'
-        clamscan -r . > $REPORT_DIR/clamav.txt 2>/dev/null || true; echo '{"infected_files": []}' > $REPORT_DIR/clamav.json
+        freshclam --quiet && clamscan --recursive=yes --detect-pua=yes --scan-archive=yes --json=yes . 2>$REPORT_DIR/clamav.log || echo '{"infected_files": []}' > $REPORT_DIR/clamav.json
         
     - name: Upload scan reports
       uses: actions/upload-artifact@v4
